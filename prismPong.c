@@ -1,10 +1,9 @@
 /*
- * Nokia.c
+ * prismFirmware.c
  *
- * Created: 6/24/2013 2:23:25 PM
- *  Author: Ian
- 
- 
+ * Created: 6/30/2013 12:23:25 PM
+ *  Author: guy
+
 BLACK: 8-LED PWM(TBS)
 BROWN: 7-SCLK SCK
 RED: 6-DN (MOSI) PB2
@@ -28,6 +27,7 @@ PURPLE: 1-VCC +3.3v
 #include <avr/io.h>
 #include <util/delay.h>
 #include <math.h>
+#include <avr/interrupt.h>
 
 // Macros to make bit manipulation easier
 #define set_bit(address,bit) (address |= (1<<bit))
@@ -52,6 +52,8 @@ PURPLE: 1-VCC +3.3v
 #define LCD_DATA  1
 
 typedef uint8_t byte;
+
+int output = 0;
 
 static const byte ASCII[][5] = {
 {0x00, 0x00, 0x00, 0x00, 0x00} // 20
@@ -228,11 +230,23 @@ int main(void)
 {
 	
 	LCDInit(); //Init the LCD
+	ADCInit();
 	int timer = 0;
 	int yax = 0;
 	int xax = 0;
 	int count = 0;
 	char str[16];
+	
+	int pongy=10; //39-42
+	int a=0; int b=0;
+	int ballx=84/2;
+	int bally=5;
+	int dx=0;
+	int dy=1;
+	int change=0;
+	int topchange=200;
+	int lose=0;
+	
 	
     while(1)
     {
@@ -240,12 +254,12 @@ int main(void)
 		LCDClear();
 		LCDBitmap(SFEFlame);
 		_delay_ms(1000);
-
+		
 		LCDClear();
 		LCDString("Hello World!");
 		_delay_ms(1000);
-		
 		*/
+		
 		/*
 		//pixel experimentation
 		LCDClear();
@@ -264,30 +278,82 @@ int main(void)
 		_delay_ms(5000);
 		*/
 		
+		
 		/*
-		a ++;
-		if (count >= 160) {
-			//a += 1;
-			count = 0;
-		}
 		LCDClear();
-		itoa(a, str, 10);
+		mapD (ADCH, 0, 255, 0, 83);
+		itoa(output, str, 10);
 		LCDString(str);
 		*/
 		//rando = (rand*109+89)%251; 
-		/*
+		
 		timer ++;
 		xax ++;
-		//yax = 6;
+		
 		//yax++;
 		
-		yax = 20;
+		//yax = 2*xax + 20;
 		
-		if (timer == 43) {
-		LCDClear();
+		if (timer == 150) {
+			LCDClear();
+			if (lose==1){
+				//itoa(output, str, 10);
+				LCDString("YOU LOSE");
+			}			
+			timer = 0;
 		}		
 		
-		writePixel(xax,yax);
+		a=0;
+		while(1){
+			a=a+1;
+			writePixel(pongy+a,40);
+			if (a>=15){
+				break;
+			}
+		}		
+		
+		if (output>25 && pongy>0 && lose==0) {
+			b=b+1;
+		}
+		if (output<15 && pongy<83-15 && lose==0) {
+			b=b-1;
+		}
+		if (b>20){
+			b=0; pongy=pongy-1;
+		}
+		if (b<-20){
+			b=0; pongy=pongy+1;
+		}
+		
+		//BALLLLLLLLZ
+		writePixel(ballx-dx*3,bally-dy*3);
+		writePixel(ballx-dx*2,bally-dy*2);
+		writePixel(ballx-dx,bally-dy);
+		writePixel(ballx,bally);
+		if (change>topchange){
+			if (topchange>20){ topchange=topchange-1; }
+			ballx=ballx+dx;
+			bally=bally+dy;
+			change=0;
+		}		
+		change=change+1;
+		
+		//Collision
+		if (ballx<=pongy+15 && ballx>=pongy && bally>=40){
+			dy=-dy; bally=39;
+			if (dx==0){
+				if (ballx<pongy+8){ dx=-1; }
+				if (ballx>=pongy+8){ dx=1; }
+			}
+		}
+		if (ballx<=3){ dx=-dx; }
+		if (ballx>=80){ dx=-dx; }
+		if (bally<=3){ dy=-dy; }
+		if (bally>=43){ dx=0; dy=0; lose=1; }
+		
+		
+		
+		
 		
 		if (yax == 43) {
 			yax = 0;
@@ -295,11 +361,36 @@ int main(void)
 		if (xax == 83) {
 			xax = 0;
 		}
-		*/
+		
+		
+		mapD (ADCH, 0, 255, 0, 43);
+		yax = output;
+	
 	}
 
 }
 
+mapD(int x, int in_min, int in_max, int out_min, int out_max) {
+	output = (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
+ADCInit(void) {
+	ADCSRA |= (1 << ADPS2) | (1 << ADPS1) | (1 << ADPS0); // Set ADC prescalar to 128 - 125KHz sample rate @ 16MHz
+
+	ADMUX |= (1 << REFS0); // Set ADC reference to AVCC
+	ADMUX |= (1 << ADLAR); // Left adjust ADC result to allow easy 8 bit reading
+
+	// No MUX values needed to be changed to use ADC0
+
+	ADCSRA |= (1 << ADEN);  // Enable ADC
+	ADCSRA |= (1 << ADSC);  // Start A2D Conversions
+
+	ADMUX &= 0xF8; // clear bottom 3 bits
+	ADMUX |= 4; // then set bottom 3 bits to channel n
+	
+	ADCSRA |= (1 << ADATE);
+
+}
 
 writePixel(int x, int y) {
 	
@@ -403,6 +494,8 @@ void LCDInit(void) {
 	set_bit(DDRB,PIN_DC);
 	set_bit(DDRB,PIN_SDIN);
 	set_bit(DDRB,PIN_SCLK);
+	
+	set_bit(DDRF,5);
 	
 	//PRRO write to 0
 	PRR0 = (0<<PRSPI);
