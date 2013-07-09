@@ -29,24 +29,19 @@ PURPLE: 1-VCC +3.3v
 #include <math.h>
 #include <avr/interrupt.h>
 
-// Macros to make bit manipulation easier
 #define set_bit(address,bit) (address |= (1<<bit))
 #define clear_bit(address,bit) (address &= ~(1<<bit))
 #define toggle_bit(address,bit) (address ^= (1<<bit))
-
-// This macro is for checking if a certain bit is set in a given register.
-// This is useful here for checking the status of individual input pins.
 #define check_bit(address,bit) ((address & (1<<bit)) == (1<<bit))
 
 #define LCD_X     84
 #define LCD_Y     48
 
-//#define PIN_SCE   7 //Pin 3 on LCD
+#define PIN_SCE   0 //Pin 3 on LCD
 #define PIN_RESET 4 //Pin 4 on LCD
 #define PIN_DC    6 //Pin 5 on LCD
 #define PIN_SDIN  2 //Pin 6 on LCD
 #define PIN_SCLK  1 //Pin 7 on LCD
-#define PIN_SCE   0 //Pin 7 on LCD
 
 #define LCD_COMMAND 0
 #define LCD_DATA  1
@@ -54,6 +49,9 @@ PURPLE: 1-VCC +3.3v
 typedef uint8_t byte;
 
 int output = 0;
+	
+uint16_t ADC1;
+uint16_t ADC2;
 
 static const byte ASCII[][5] = {
 {0x00, 0x00, 0x00, 0x00, 0x00} // 20
@@ -154,7 +152,6 @@ static const byte ASCII[][5] = {
   ,{0x78, 0x46, 0x41, 0x46, 0x78} // 7f DEL
 };
 
-//This is the SFE flame in bit form
 char SFEFlame[] = {
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -228,28 +225,25 @@ const unsigned char Buffer [] = {
 
 int main(void)
 {
-	
-	LCDInit(); //Init the LCD
-	ADCInit();
-	ADCSRA |= (1 << ADATE);
 	int timer = 0;
-	
 	int x;
 	int y;
 	
-	int x1 = 10;
-	int x2 = 40;
-	int y1 = 20;
-	int y2 = 2;
-	
-	int D;
-	
-	int count = 0;
-	char str[16];
 	char str1[16];
 	char str2[16];
 	
-	uint16_t sensor1, sensor2;
+	clear_bit(DDRD,5);
+	clear_bit(DDRD,4);
+	set_bit(PORTD,5);
+	set_bit(PORTD,4);
+	
+	set_bit(DDRB,7);
+	
+	LCDInit();
+	ADCInit();
+	
+	sei();
+
 	
     while(1)
     {
@@ -263,96 +257,122 @@ int main(void)
 		_delay_ms(1000);
 		*/
 		
-		/*
-		//pixel experimentation
-		LCDClear();
-		//a += 1;
-		//q += 1;
-		//putPixel(a, b);		gotoXY(0,1);
-		LCDData(0b11111111);
-		LCDData(0b00000101);
-		LCDData(0b00000111);
-		LCDData(0x00);
-		LCDData(0b00011111);
-		LCDCommand(0b00001101);
-		LCDCommand(0b10000000);
-		_delay_ms(5000);
-		LCDData(0b00000000);
-		_delay_ms(5000);
-		*/
-		
-		
-		/*
-		LCDClear();
-		mapD (ADCH, 0, 255, 0, 83);
-		itoa(output, str, 10);
-		LCDString(str);
-		*/
-		//rando = (rand*109+89)%251; 
-		
 		timer ++;
-		//yax ++;
-		
-		//yax++;
-		
-		//yax = 2*xax + 20;
 		
 		if (timer >= 1000) {		
 			
 			LCDClear();
 			
-			itoa(ADMUX, str, 2);
-			LCDString(str);
-			
-			gotoXY(0,1);
-			itoa(sensor1, str1, 10);
+			itoa(ADC1, str1, 10);
+			gotoXY(0,2);
 			LCDString(str1);
 			
-			gotoXY(0,2);
-			itoa(sensor2, str2, 10);
+			itoa(ADC2, str2, 10);
+			gotoXY(0,3);
 			LCDString(str2);
-			
+
 			timer = 0;
+			
+			if(!check_bit(PIND,5))
+			{
+				gotoXY(0,0);
+				LCDString("THE QUICK");
+				gotoXY(0,1);
+				LCDString("BROWN FOX");
+				gotoXY(0,2);
+				LCDString("JUMPED OVER");
+				gotoXY(0,3);
+				LCDString("THE LAZY");
+				gotoXY(0,4);
+				LCDString("DOG");
+				gotoXY(0,5);
+				LCDString("0123456789");
+
+			}
+			  
+			if(!check_bit(PIND,4))
+			{
+				gotoXY(0,1);
+				LCDString("A");
+			}
+			
+			if (!check_bit(PIND,5) && !check_bit(PIND,4))
+			toggle_bit(PORTB, 7);
+			
 		}
-		
-		//ADCInit();
-		ADMUX &= 0xF8; // clear bottom 3 bits
-		ADMUX |= 4;
-		ADCSRA |= (1 << ADATE);
-		sensor1 = ADCH;
-		
-		//ADCInit();
-		ADMUX &= 0xF8; // clear bottom 3 bits
-		ADMUX |= 5;
-		ADCSRA |= (1 << ADATE);
-		sensor2 = ADCH;
-		
-		//drawTo(20, output, 80, output);
-		
-		
-		//writePixel(xax,yax);
 		
 		if (y == 43) {
 			y = 0;
 		}
+		
 		if (x == 83) {
 			x = 0;
 		}
 		
-		//mapD (ADCH, 32, 218, 0, 43);
+		mapData (ADC2, 170, 1024, 0, 43);
+		//drawToB(20, output, 80, output);
+
 		
+
+		y++;
+		x = ADC1 + 20;
 		
-		//x2 = x2 + output;
-		/*
-		xax = output;
-		yax = 48;
-		*/
+		//writeY(x,y);
+		//SdrawToB(20, output, 80, output);
 		
-		//uint8_t tL = ADCL;
-		//uint16_t tTBR = ADCH<<8 | tL;
+		//drawTo(output, 0, output, 83);
 		
 	}
 
+}
+
+// Hack-y, but works
+// borrowed from AVRfreaks
+uint8_t reverse(uint8_t n) {
+	n = ((n >> 1) & 0x55) | ((n << 1) & 0xaa);
+	n = ((n >> 2) & 0x33) | ((n << 2) & 0xcc);
+	n = ((n >> 4) & 0x0f) | ((n << 4) & 0xf0);
+}
+
+drawToB(int x0, int y0, int x1, int y1) {
+	uint8_t steep = abs(y1 - y0) > abs(x1 - x0);
+	uint8_t dx, dy;
+	int8_t err;
+	int8_t ystep;
+
+	if (steep) {
+		swap(x0, y0);
+		swap(x1, y1);
+	}
+
+	if (x0 > x1) {
+		swap(x0, x1);
+		swap(y0, y1);
+	}
+
+	dx = x1 - x0;
+	dy = abs(y1 - y0);
+
+	err = dx / 2;
+
+	if (y0 < y1) {
+		ystep = 1;
+	} else {
+		ystep = -1;
+	}
+
+	for (; x0<=x1; x0++) {
+		if (steep) {
+			writePixel(y0, x0);
+		} else {
+			writePixel(x0, y0);
+		}
+		err -= dy;
+		if (err < 0) {
+			y0 += ystep;
+			err += dx;
+		}
+	}
 }
 
 drawTo(int x1, int y1, int x2, int y2) {
@@ -368,40 +388,152 @@ drawTo(int x1, int y1, int x2, int y2) {
 	
 	for (xax = x1; xax >= x1 && xax <= x2; xax++) {
 		xax++;
-		//yax = xax;
 		yax = y1 + (dy) * (xax - x1)/(dx);
 		
 		writePixel(xax,yax);
 		
 		if (xax > x2) {
-			//	break;
+			break;
 		}
 	}
 }
 
-mapD(int x, int in_min, int in_max, int out_min, int out_max) {
+mapData(int x, int in_min, int in_max, int out_min, int out_max) {
 	output = (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
 ADCInit(void) {
-	ADCSRA |= (1 << ADPS2) | (1 << ADPS1) | (1 << ADPS0); // Set ADC prescalar to 128 - 125KHz sample rate @ 16MHz
-
-	ADMUX |= (1 << REFS0) | (REFS1); // Set ADC reference to AVCC
-	ADMUX |= (1 << ADLAR); // Left adjust ADC result to allow easy 8 bit reading
-
-	// No MUX values needed to be changed to use ADC0
-
-	ADCSRA |= (1 << ADEN);  // Enable ADC
-	ADCSRA |= (1 << ADSC);  // Start A2D Conversions
-
-	//ADMUX &= 0xF8; // clear bottom 3 bits
-	//ADMUX |= 4; // then set bottom 3 bits to channel n
 	
-	//ADCSRA |= (1 << ADATE);
+	ADCSRA |= 1<<ADPS2;
+	
+	ADMUX |= 1<<REFS0 | 1<<REFS1;
+	
+	ADCSRA |= 1<<ADIE;
+	ADCSRA |= 1<<ADEN;
+	ADCSRA |= 1<<ADSC;
+	
+	ADMUX = 0xC4;
 	
 }
 
+ISR(ADC_vect)
+{
+	uint8_t theLow = ADCL;
+	uint16_t theTenBitResult = ADCH<<8 | theLow;
+
+	switch (ADMUX)
+	{
+		case 0xC5:
+			
+			ADC1 = theTenBitResult;
+			ADMUX = 0xC4;
+			ADCSRA |= 1<<ADSC;
+		break;
+		
+		case 0xC4:
+		
+			ADC2 = theTenBitResult;
+			ADMUX = 0xC5;
+			ADCSRA |= 1<<ADSC;
+		break;
+		
+		default:
+
+		break;
+	} //ADCSRA |= 1<<ADSC;
+}
+
+swap(int x, int y) {
+	int a;
+	int b;
+	
+	a = x;
+	b = y;
+	
+	x = b;
+	y = a;
+}
+
 writePixel(int x, int y) {
+	
+	int q;
+	int xval = x;
+	int collumn;
+	
+	if (y >= 0 && y <= 7) {
+		gotoXY(x,0);
+		q = y - 0;
+	}
+	
+	if (y > 7 && y <= 15) {
+		gotoXY(x,1);
+		q = y - 8;
+	}
+	
+	if (y > 15 && y <= 23) {
+		gotoXY(x,2);
+		q = y - 16;
+	}
+	
+	if (y > 23 && y <= 31) {
+		gotoXY(x,3);
+		q = y - 24;
+	}
+	
+	if (y > 31 && y <= 39) {
+		gotoXY(x,4);
+		q = y - 32;
+	}
+	
+	if (y > 39 && y <= 47) {
+		gotoXY(x,5);
+		q = y - 40;
+	}
+	/*
+	if (q == 0)
+	//collumn |= 0b00000001;
+	LCDData(0b00000001);
+	
+	if (q == 1)
+	//collumn |= 0b00000010;
+	LCDData(0b00000010);
+	
+	if (q == 2)
+	//collumn |= 0b00000100;
+	LCDData(0b00000100);
+	
+	if (q == 3)
+	//collumn |= 0b00001000;
+	LCDData(0b00001000);
+	
+	if (q == 4)
+	//collumn |= 0b00010000;
+	LCDData(0b00010000);
+	
+	if (q == 5)
+	//collumn |= 0b00100000;
+	LCDData(0b00100000);
+	
+	if (q == 6)
+	//collumn |= 0b01000000;
+	LCDData(0b01000000);
+	
+	if (q == 7)
+	//collumn |= 0b10000000;
+	LCDData(0b10000000);
+	
+	if (xval != x) {
+		collumn &= 0b00000000;
+	}
+	*/
+	
+	LCDData(1 << q);
+	
+	//LCDData(collumn);
+
+}
+
+writeY(int x, int y) {
 	
 	int q;
 	int a = 0;
@@ -438,40 +570,49 @@ writePixel(int x, int y) {
 	
 	
 	if (q == 0)
-	LCDData(0b00000001);
+	LCDData(0xFF);
+	//LCDData(0b00000001);
 	
 	if (q == 1)
-	LCDData(0b00000010);
+	LCDData(0xFF);
+	//LCDData(0b00000010);
 	
 	if (q == 2)
-	LCDData(0b00000100);
+	LCDData(0xFF);
+	//LCDData(0b00000100);
 	
 	if (q == 3)
-	LCDData(0b00001000);
+	LCDData(0xFF);
+	//LCDData(0b00001000);
 	
 	if (q == 4)
-	LCDData(0b00010000);
+	LCDData(0xFF);
+	//LCDData(0b00010000);
 	
 	if (q == 5)
-	LCDData(0b00100000);
+	LCDData(0xFF);
+	//LCDData(0b00100000);
 	
 	if (q == 6)
-	LCDData(0b01000000);
+	LCDData(0xFF);
+	//LCDData(0b01000000);
 	
 	if (q == 7)
-	LCDData(0b10000000);
-	
-	if (a == 1) {
-		LCDData(0b11111111);
-	}
+	LCDData(0xFF);
+	//LCDData(0b10000000);
 
 }
+
 void LCDCharacter(char character) {
 	LCDData(0x00); //Blank vertical line padding
 	
-	for (int index = 0 ; index < 5 ; index++)
-	LCDData(ASCII[character - 0x20][index]);
+	//for (int index = 0 ; index < 5 ; index++)
+	//LCDData(ASCII[character - 0x20][index]);
 	//0x20 is the ASCII character for Space (' '). The font table starts with this character
+
+	for (int index = 0 ; index < 5 ; index++)
+	// an interesting idea might be to reverse the bits on the entire ASCII table. Faster, certainly!
+	LCDData(reverse(ASCII[character - 0x20][4-index]));
 
 	LCDData(0x00); //Blank vertical line padding
 }
@@ -504,7 +645,6 @@ void gotoXY(int x, int y) {
 //This sends the magical commands to the PCD8544
 void LCDInit(void) {
 
-	//Configure control pins
 	set_bit(DDRB,PIN_SCE);
 	set_bit(DDRB,PIN_RESET);
 	set_bit(DDRB,PIN_DC);
@@ -515,9 +655,8 @@ void LCDInit(void) {
 	
 	//PRRO write to 0
 	PRR0 = (0<<PRSPI);
-	/* Set MOSI and SCK output, all others input */
-	//DDRB = (1<<DDB2)|(1<<DDB1)|(1<<DDB5)|(1<<DDB0);
-	/* Enable SPI, Master, set clock rate fck/16 */
+	
+	// Enable SPI, Master, set clock rate fck/16
 	SPCR = (1<<SPE)|(1<<MSTR)|(1<<SPR0);
 
 	//Reset the LCD to a known state
@@ -525,7 +664,7 @@ void LCDInit(void) {
 	set_bit(PORTB, PIN_RESET);
 
 	LCDCommand(0x21); //Tell LCD that extended commands follow
-	LCDCommand(0xB0); //Set LCD Vop (Contrast): Try 0xB1(good @ 3.3V) or 0xBF if your display is too dark
+	LCDCommand(0xB1); //Set LCD Vop (Contrast): Try 0xB1(good @ 3.3V) or 0xBF if your display is too dark
 	LCDCommand(0x04); //Set Temp coefficent
 	LCDCommand(0x14); //LCD bias mode 1:48: Try 0x13 or 0x14
 
@@ -533,9 +672,6 @@ void LCDInit(void) {
 	LCDCommand(0x0C); //Set display control, normal mode. 0x0D for inverse
 }
 
-//There are two memory banks in the LCD, data/RAM and commands. This
-//function sets the DC pin high or low depending, and then sends
-//the data byte
 void LCDCommand(byte data) {
 	clear_bit(PORTB,6);
 
@@ -558,6 +694,7 @@ void LCDData(byte data) {
 	
 	/* Start transmission */
 	SPDR = data;
+	
 	/* Wait for transmission complete */
 	while(!(SPSR & (1<<SPIF)))
 	;
